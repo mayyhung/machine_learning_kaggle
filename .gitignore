@@ -1,0 +1,15 @@
+# Python cache & virtual environments
+__pycache__/
+.py[cod]
+.venv/
+venv/
+env/
+
+# Kaggle data & outputs (排除大型資料與輸出結果)
+data/*.csv
+data/*.zip
+output/*.csv
+
+# OS generated files
+.DS_Store
+Thumbs.db
