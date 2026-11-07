@@ -81,7 +81,7 @@ Use `roc_auc_score` from scikit-learn to calculate validation AUROC.
 
 Generate the following two files:
 
-### 1. `submission.csv`
+### 1. `output/submission.csv`
 
 The Kaggle-ready prediction file.
 
@@ -95,7 +95,7 @@ Requirements:
 - The `label` column must contain predicted probabilities between 0 and 1.
 - Follow the format of `sample_submission.csv`.
 
-### 2. `train.py`
+### 2. `src/train.py`
 
 A complete, executable Python script containing the entire machine learning pipeline, including:
 
@@ -110,6 +110,16 @@ A complete, executable Python script containing the entire machine learning pipe
 
 The script should be reproducible and executable without manual intervention.
 
+### 3. `output/model_performance.md`
+
+A Markdown report summarizing the validation performance and pipeline configurations:
+
+Requirements:
+- Validation AUROC score (e.g., calculated via stratified train/val split).
+- Key pipeline parameters (e.g., TF-IDF `ngram_range`, `max_features`, Logistic Regression settings).
+- Dataset summary statistics used for training and validation.
+- Execution timestamp and status.
+
 ## 6. Implementation Requirements
 
 - Use Python and scikit-learn.
@@ -122,6 +132,7 @@ The script should be reproducible and executable without manual intervention.
 **Expected Output:**
 1. `train.py`: Complete source code.
 2. `submission.csv`: Final Kaggle submission file.
+3. `model_performance.md`: Detailed validation metrics and configuration log.
 
 Both files should be saved in the project directory.
 
