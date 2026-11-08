@@ -25,28 +25,6 @@ This repository contains the end-to-end machine learning pipeline for the AI-gen
 
 ```
 
-## 🛠️ Environment Setup
-
-### Prerequisites
-
-* WSL / Ubuntu Environment
-
-* Python 3.10+
-
-* Virtual environment (`.venv`)
-
-### Installation & Virtual Environment Activation
-
-```
-# Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install --upgrade pip
-pip install pandas numpy scikit-learn
-
-```
 
 ## 🚀 Execution & Workflow
 
