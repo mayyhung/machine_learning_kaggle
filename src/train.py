@@ -3,8 +3,10 @@ AI-Generated Text Classification: TF-IDF + Logistic Regression pipeline.
 
 Steps:
   1. Load labeled training data (data/train.csv) and test data (data/test.csv).
-  2. Stratified train/validation split -> fit TF-IDF on the training split only
-     -> fit Logistic Regression -> evaluate validation AUROC.
+  2. Fixed train/validation split: the validation IDs are read from
+     data/group26_validation_ids.txt (all other labeled rows form the training
+     split) -> fit TF-IDF on the training split only -> fit Logistic Regression
+     -> evaluate train and validation AUROC.
   3. Retrain TF-IDF + Logistic Regression on the full labeled training set.
   4. Predict P(label = 1) for every test passage -> output/submission.csv.
   5. Write validation metrics, configuration and dataset statistics to
@@ -13,6 +15,7 @@ Steps:
 Run from any directory:  python3 src/train.py
 """
 
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -20,7 +23,6 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import train_test_split
 
 # ---------------------------------------------------------------------------
 # 0. Configuration
@@ -31,11 +33,11 @@ OUTPUT_DIR = PROJECT_DIR / "output"
 
 TRAIN_PATH = DATA_DIR / "train.csv"
 TEST_PATH = DATA_DIR / "test.csv"
+VALIDATION_IDS_PATH = DATA_DIR / "group26_validation_ids.txt"  # Fixed validation set
 SUBMISSION_PATH = OUTPUT_DIR / "submission.csv"
 REPORT_PATH = OUTPUT_DIR / "model_performance.md"
 
 RANDOM_STATE = 42
-VAL_SIZE = 0.2  # Fraction of labeled data held out for validation
 
 TFIDF_PARAMS = {"ngram_range": (1, 2), "max_features": 100000}
 LR_PARAMS = {"random_state": RANDOM_STATE}  # Otherwise sklearn defaults
@@ -54,6 +56,27 @@ def load_data():
     train["text"] = train["text"].fillna("").astype(str)
     test["text"] = test["text"].fillna("").astype(str)
     return train, test
+
+
+def fixed_validation_split(train):
+    """Split the labeled data using the fixed validation IDs in VALIDATION_IDS_PATH.
+
+    Rows whose id appears in the file form the validation set; all remaining
+    labeled rows form the training split. Test labels are never used here.
+    """
+    val_ids = [int(tok) for tok in VALIDATION_IDS_PATH.read_text(encoding="utf-8").split()]
+    val_id_set = set(val_ids)
+
+    if len(val_id_set) != len(val_ids):
+        raise ValueError("Validation ID file contains duplicate IDs.")
+    missing = val_id_set - set(train["id"])
+    if missing:
+        raise ValueError(f"{len(missing)} validation IDs not found in train.csv.")
+
+    is_val = train["id"].isin(val_id_set)
+    train_split = train.loc[~is_val]
+    val_split = train.loc[is_val]
+    return train_split, val_split
 
 
 # ---------------------------------------------------------------------------
@@ -106,18 +129,26 @@ def write_report(status, stats, error=None):
     if error:
         lines.append(f"- **Error:** `{error}`")
 
+    train_auroc = stats.get("train_auroc")
+    train_auroc_text = f"{train_auroc:.4f}" if train_auroc is not None else "N/A"
+    fit_time = stats.get("fit_time_sec")
+    fit_time_text = f"{fit_time:.2f}" if fit_time is not None else "N/A"
+
     lines += [
         "",
         "## Validation Metrics",
         "",
         "| Metric | Value |",
         "|---|---:|",
+        f"| Train AUROC (training split) | {train_auroc_text} |",
         f"| Validation AUROC | {auroc_text} |",
+        f"| Train time, training split (s) | {fit_time_text} |",
         "",
         "## Pipeline Configuration",
         "",
         "- **Model:** TF-IDF + Logistic Regression",
-        f"- **Validation split:** `train_test_split`, test_size={VAL_SIZE}, stratify=label, random_state={RANDOM_STATE}",
+        f"- **Validation split:** fixed IDs from `{VALIDATION_IDS_PATH.relative_to(PROJECT_DIR).as_posix()}`"
+        " (rows whose `id` is listed form the validation set; all other labeled rows form the training split)",
         "",
         "### TfidfVectorizer",
         "",
@@ -179,14 +210,10 @@ def main():
             n_test=len(test),
         )
 
-        # --- Stratified validation ----------------------------------------
-        X_fit, X_val, y_fit, y_val = train_test_split(
-            X_text,
-            y,
-            test_size=VAL_SIZE,
-            stratify=y,
-            random_state=RANDOM_STATE,
-        )
+        # --- Fixed validation split (IDs from group26_validation_ids.txt) --
+        fit_df, val_df = fixed_validation_split(train)
+        X_fit, y_fit = fit_df["text"], fit_df["label"].astype(int)
+        X_val, y_val = val_df["text"], val_df["label"].astype(int)
         stats.update(
             n_fit=len(y_fit),
             n_fit_0=int((y_fit == 0).sum()),
@@ -196,7 +223,16 @@ def main():
             n_val_1=int((y_val == 1).sum()),
         )
 
-        val_proba, _, _ = fit_and_predict_proba(X_fit, y_fit, X_val)
+        start = time.perf_counter()
+        val_proba, fit_vectorizer, fit_classifier = fit_and_predict_proba(X_fit, y_fit, X_val)
+        stats["fit_time_sec"] = time.perf_counter() - start
+
+        # Train AUROC: score the same training split the model was fit on.
+        X_fit_features = fit_vectorizer.transform(X_fit)
+        fit_pos_idx = list(fit_classifier.classes_).index(1)
+        train_proba = fit_classifier.predict_proba(X_fit_features)[:, fit_pos_idx]
+        stats["train_auroc"] = float(roc_auc_score(y_fit, train_proba))
+
         val_auroc = roc_auc_score(y_val, val_proba)
         stats["val_auroc"] = float(val_auroc)
 

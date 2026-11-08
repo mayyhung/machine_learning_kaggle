@@ -1,0 +1,15 @@
+\question{Q1.1 [3 points].}{How did you preprocess and represent the text? Specify tokenization, normalization, word/character features or embeddings, and any feature extraction choices. Why?}
+Each passage is used as written. The only safeguard replaces missing text with an empty string, although the provided files contain no nulls. I did not add custom cleaning. \texttt{TfidfVectorizer} lowercases the text and tokenizes it with its default pattern, which keeps runs of two or more word characters and discards punctuation and single-character tokens. Features are word unigrams and bigrams (\texttt{ngram\_range=(1,2)}), restricted to the 100{,}000 most frequent terms in the training data (\texttt{max\_features=100000}). Terms are weighted by TF-IDF with scikit-learn's default smoothed IDF and L2 normalization. The vectorizer is fit on the training split only, and its vocabulary is then applied to the validation and test passages. I chose this representation because the assignment requires it, and word n-grams capture common phrasing and short word combinations that can separate human and AI text. A limitation is that the default tokenizer drops punctuation and capitalization, which may carry useful signal.
+
+\question{Q1.2 [5 points].}
+\begin{tabularx}{\linewidth}{@{}p{1.24in}Yrrr@{}}\toprule
+Model & Text representation & Train AUROC & Val. AUROC & Train time \\ \midrule
+\textit{Model A} & TF-IDF, word unigrams and bigrams, \texttt{max\_features=100000}; Logistic Regression & 0.9869 & 0.9207 & 9.96 s \\
+\bottomrule\end{tabularx}
+
+Train AUROC is measured on the 8,000-row training split, and validation AUROC on the fixed 2,000-row validation split defined by \texttt{data/group26\_validation\_ids.txt}. Train time is the wall-clock time to fit the vectorizer and classifier on the training split, including transforming the validation passages.
+
+\question{Q1.3 [4 points].}{which hyperparameters and candidate values did you try? How did you select the final settings without using Kaggle test labels?}
+\begin{tabularx}{\linewidth}{@{}p{1.18in}Yp{1.38in}@{}}\toprule Model & Parameters/values searched & Chosen setting \\ \midrule \textit{Model A} & \texttt{ngram\_range} and \texttt{max\_features}: fixed by the assignment, not searched & (1,2); 100000 \\ \textit{} & \texttt{C}, \texttt{solver}, \texttt{max\_iter}: library defaults, not searched & C=1.0, lbfgs, \texttt{max\_iter}=100 (converged after 26 iterations) \\ \textit{} & \texttt{random\_state}: fixed for reproducibility & 42 \\ \bottomrule\end{tabularx}
+
+No hyperparameter search was run. The assignment specifies the TF-IDF settings and asks for default Logistic Regression settings apart from a fixed \texttt{random\_state}, so the final model uses exactly one configuration. The validation split is fixed in advance by the group's ID list, and the validation AUROC is reported only for this single configuration, so no setting was chosen by comparing validation scores. Kaggle test labels were never available to the pipeline, and \texttt{test.csv} was used only to produce predicted probabilities after the final retraining on all 10,000 labeled passages.

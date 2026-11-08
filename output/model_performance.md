@@ -2,19 +2,21 @@
 
 ## Execution
 
-- **Execution timestamp:** 2026-11-07 13:15:23
+- **Execution timestamp:** 2026-11-08 14:44:33
 - **Status:** SUCCESS
 
 ## Validation Metrics
 
 | Metric | Value |
 |---|---:|
-| Validation AUROC | 0.9145 |
+| Train AUROC (training split) | 0.9869 |
+| Validation AUROC | 0.9207 |
+| Train time, training split (s) | 9.96 |
 
 ## Pipeline Configuration
 
 - **Model:** TF-IDF + Logistic Regression
-- **Validation split:** `train_test_split`, test_size=0.2, stratify=label, random_state=42
+- **Validation split:** fixed IDs from `data/group26_validation_ids.txt` (rows whose `id` is listed form the validation set; all other labeled rows form the training split)
 
 ### TfidfVectorizer
 
